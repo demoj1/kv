@@ -3,6 +3,7 @@ defmodule KV do
   use Supervisor
 
   @port Application.get_env(:kv, :port, 8080)
+  @ttl Application.get_env(:kv, :ttl, 10_000)
 
   @doc """
   Добавить новое значение в хранилище (операция выполняется асинхронно).
@@ -20,11 +21,12 @@ defmodule KV do
 
       iex> KV.create("foo", "bar")
       iex> KV.create("foo", "baz")
+      iex> Process.sleep(1) # даем dets время на запись
       iex> KV.read("foo")
       "bar"
   """
   @spec create(String.t(), any(), integer()) :: :ok
-  defdelegate create(key, value, ttl \\ 10_000), to: KV.Storage
+  defdelegate create(key, value, ttl \\ @ttl), to: KV.Storage
 
   @doc """
   Добавить список новых значений в хранилище (операция выполняется асинхронно).
@@ -62,6 +64,7 @@ defmodule KV do
 
   ### Пример
       iex> KV.create("foo", "bar")
+      iex> Process.sleep(1) # даем dets время на запись
       iex> KV.read("foo")
       "bar"
 
@@ -73,8 +76,7 @@ defmodule KV do
 
   @doc """
   Обновить значение в хранилище.
-  > Если ключ отсутствовал в хранилище, обновления не произойдет, для
-  этой цели нужно использовать функцию: `upsert/3`.
+  > Если ключ отсутствовал в хранилище, обновления не произойдет.
   > Если значение ttl не будет передано, ttl останется прежним.
 
   ### Параметры
@@ -85,6 +87,7 @@ defmodule KV do
   ### Пример
       iex> KV.create("foo", "bar")
       iex> KV.update("foo", "baz")
+      iex> Process.sleep(1) # даем dets время на запись
       iex> KV.read("foo")
       "baz"
 
