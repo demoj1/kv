@@ -1,26 +1,15 @@
 defmodule KV.RouterTest do
-  alias KV.Router
-
-  use ExUnit.Case, async: false
+  use KV.TestCase
   use Plug.Test
 
-  @dets_path Application.get_env(:kv, :dets_path)
-
-  setup do
-    File.rm(@dets_path)
-    {:ok, ref} = :dets.open_file(@dets_path, type: :set, auto_save: 1_000)
-    :dets.delete_all_objects(ref)
-  end
+  alias KV.Router
 
   describe "router correct work" do
     test "create new record" do
       resp =
-        conn(:post, "/foo", "value=bar&ttl=5")
+        conn(:post, "/foo", "value=bar&ttl=#{@ttl}")
         |> put_req_header("content-type", "application/x-www-form-urlencoded")
         |> call
-
-      # даем dets время на запись
-      Process.sleep(1)
 
       assert resp.state == :sent
       assert resp.status == 200
@@ -29,7 +18,7 @@ defmodule KV.RouterTest do
       assert "bar" == KV.read("foo")
 
       # Ждем истечения ttl
-      Process.sleep(5)
+      wait_ttl_timeout()
 
       assert [] == KV.read("foo")
     end
@@ -49,15 +38,12 @@ defmodule KV.RouterTest do
         conn(:get, "/foo")
         |> call
 
-      # даем dets время на запись
-      Process.sleep(2)
-
       assert resp.state == :sent
       assert resp.status == 200
       assert resp.resp_body == "bar"
 
       # Ждем истечения ttl
-      Process.sleep(5)
+      wait_ttl_timeout()
 
       resp =
         conn(:get, "/foo")
@@ -76,8 +62,8 @@ defmodule KV.RouterTest do
         |> put_req_header("content-type", "application/x-www-form-urlencoded")
         |> call
 
-      # ждем окончания ttl
-      Process.sleep(5)
+      # Ждем истечения ttl
+      wait_ttl_timeout()
 
       assert resp.state == :sent
       assert resp.status == 200
@@ -90,17 +76,18 @@ defmodule KV.RouterTest do
       KV.create("foo", "bar")
 
       resp =
-        conn(:patch, "/foo", "value=baz&ttl=100")
+        conn(:patch, "/foo", "value=baz&ttl=#{@ttl * 2}")
         |> put_req_header("content-type", "application/x-www-form-urlencoded")
         |> call
-
-      # ждем окончания (предыдущего) ttl
-      Process.sleep(5)
 
       assert resp.state == :sent
       assert resp.status == 200
       assert resp.resp_body == ""
 
+      # ждем истечения (предыдущего) ttl
+      wait_ttl_timeout()
+
+      # так как ttl удвоенный, значение должно сохраняться
       assert "baz" == KV.read("foo")
     end
 
@@ -113,7 +100,7 @@ defmodule KV.RouterTest do
     end
 
     test "delete exist key" do
-      KV.create("foo", "bar", 1000)
+      KV.create("foo", "bar")
 
       resp = conn(:delete, "/foo", "") |> call
 

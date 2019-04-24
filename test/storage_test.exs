@@ -1,30 +1,25 @@
 defmodule KVTest do
-  use ExUnit.Case
+  use KV.TestCase
   doctest KV
 
-  @dets_path Application.get_env(:kv, :dets_path)
-  @clear_timeout Application.get_env(:kv, :clear_timeout)
-
-  setup do
-    File.rm(@dets_path)
-    {:ok, ref} = :dets.open_file(@dets_path, type: :set, auto_save: 1_000)
-    :dets.delete_all_objects(ref)
-  end
-
   describe "storage correct work with ttl" do
-    test "correct work auto clear" do
-      {:ok, ref} = :dets.open_file(@dets_path, type: :set, auto_save: 1_000)
-      KV.create("foo", "bar", 5)
+    test "correct work auto clear", %{dets: dets, stor_pid: stor_pid} do
+      KV.create("foo", "bar")
+
+      wait_cast_call(stor_pid)
 
       # Ждем запуска очистки и просрочки ttl
-      Process.sleep(@clear_timeout + 10)
+      Process.sleep(@clear_timeout + @ttl)
 
-      assert [] == :dets.lookup(ref, "foo")
+      assert [] == :dets.lookup(dets, "foo")
     end
 
-    test "should remove after ttl timeout" do
-      KV.create("foo", "bar", 1)
-      Process.sleep(2)
+    test "should remove after ttl timeout", %{stor_pid: stor_pid} do
+      KV.create("foo", "bar", @ttl)
+
+      wait_cast_call(stor_pid)
+      wait_ttl_timeout()
+
       assert [] == KV.read("foo")
     end
 
@@ -34,13 +29,26 @@ defmodule KVTest do
       end
     end
 
-    test "should't update key after ttl timeout" do
-      KV.create("foo", "bar", 1)
+    test "should't update key after ttl timeout", %{stor_pid: stor_pid} do
+      KV.create("foo", "bar", @ttl)
 
-      Process.sleep(2)
+      wait_cast_call(stor_pid)
+      wait_ttl_timeout()
 
       KV.update("foo", "baz")
       assert [] == KV.read("foo")
+    end
+
+    test "should update key and ttl timeout", %{stor_pid: stor_pid} do
+      KV.create("foo", "bar", @ttl)
+      wait_cast_call(stor_pid)
+
+      KV.update("foo", "baz", @ttl * 2)
+      wait_cast_call(stor_pid)
+
+      wait_ttl_timeout()
+
+      assert "baz" == KV.read("foo")
     end
 
     test "should raise call update if key not string" do
@@ -49,8 +57,10 @@ defmodule KVTest do
       end
     end
 
-    test "should not raise delete exist't key from storage" do
+    test "should not raise delete exist't key from storage", %{stor_pid: stor_pid} do
       KV.delete("foo")
+      wait_cast_call(stor_pid)
+
       assert [] == KV.read("foo")
     end
 

@@ -3,7 +3,7 @@ defmodule KV.Storage do
 
   @type table() :: String.t()
 
-  @dets_path Application.get_env(:kv, :dets_path, "./storage")
+  @dets_path Application.get_env(:kv, :dets_path, :storage)
   @auto_save Application.get_env(:kv, :auto_save, 1_000)
   @clear_timeout Application.get_env(:kv, :clear_timeout, 10_000)
 
@@ -37,12 +37,9 @@ defmodule KV.Storage do
     GenServer.cast(__MODULE__, {:delete, key})
   end
 
-  @doc """
-  Удалить записи, у которых вышел ttl.
-
-  ### Параметры
-  * `dets` - ссылка на таблицу.
-  """
+  # Удалить записи, у которых вышел ttl.
+  # Параметры
+  # * `dets` - ссылка на таблицу.
   @spec remove_timeouts() :: :ok
   defp remove_timeouts() do
     GenServer.cast(__MODULE__, :clear)
@@ -53,24 +50,11 @@ defmodule KV.Storage do
   # ---------------- Server ----------------
 
   @impl true
-  def handle_cast({:create, key_values}, dets) do
-    key_values =
-      key_values
-      |> Enum.map(fn {k, v, ttl} ->
-        {k, v, :erlang.system_time(:millisecond) + ttl}
-      end)
-
-    :dets.insert_new(dets, key_values)
-
-    {:noreply, dets}
-  end
-
-  @impl true
   def handle_call({:read, key}, _from, dets) do
     res =
       case :dets.lookup(dets, key) do
         [{_, v, ttl}] ->
-          if ttl <= :erlang.system_time(:millisecond) do
+          if ttl <= System.system_time(:millisecond) do
             KV.delete(key)
             []
           else
@@ -85,12 +69,25 @@ defmodule KV.Storage do
   end
 
   @impl true
+  def handle_cast({:create, key_values}, dets) do
+    key_values =
+      key_values
+      |> Enum.map(fn {k, v, ttl} ->
+        {k, v, System.system_time(:millisecond) + ttl}
+      end)
+
+    :dets.insert_new(dets, key_values)
+
+    {:noreply, dets}
+  end
+
+  @impl true
   def handle_cast({:update, key, value, ttl}, dets) do
     case :dets.lookup(dets, key) do
       [{_, _, old_ttl}] ->
         ttl =
           unless is_nil(ttl) do
-            :erlang.system_time(:millisecond) + ttl
+            System.system_time(:millisecond) + ttl
           else
             old_ttl
           end
@@ -113,7 +110,7 @@ defmodule KV.Storage do
 
   @impl true
   def handle_cast(:clear, dets) do
-    current_time = :erlang.system_time(:millisecond)
+    current_time = System.system_time(:millisecond)
 
     ms = [{{:_, :_, :"$1"}, [{:<, :"$1", {:const, current_time}}], [true]}]
     count = :dets.select_delete(dets, ms)

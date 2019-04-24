@@ -21,7 +21,6 @@ defmodule KV do
 
       iex> KV.create("foo", "bar")
       iex> KV.create("foo", "baz")
-      iex> Process.sleep(1) # даем dets время на запись
       iex> KV.read("foo")
       "bar"
   """
@@ -64,7 +63,6 @@ defmodule KV do
 
   ### Пример
       iex> KV.create("foo", "bar")
-      iex> Process.sleep(1) # даем dets время на запись
       iex> KV.read("foo")
       "bar"
 
@@ -87,7 +85,6 @@ defmodule KV do
   ### Пример
       iex> KV.create("foo", "bar")
       iex> KV.update("foo", "baz")
-      iex> Process.sleep(1) # даем dets время на запись
       iex> KV.read("foo")
       "baz"
 

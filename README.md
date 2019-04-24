@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/dmitrydprog/kv.svg?branch=test_project)](https://travis-ci.org/dmitrydprog/kv)
+
 # Kvstore
 Тестовое задание для разработчика Elixir
 
