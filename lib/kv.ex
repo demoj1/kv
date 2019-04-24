@@ -18,39 +18,9 @@ defmodule KV do
   ### Пример
       iex> KV.create("foo", "bar")
       :ok
-
-      iex> KV.create("foo", "bar")
-      iex> KV.create("foo", "baz")
-      iex> KV.read("foo")
-      "bar"
   """
   @spec create(String.t(), any(), integer()) :: :ok
   defdelegate create(key, value, ttl \\ @ttl), to: KV.Storage
-
-  @doc """
-  Добавить список новых значений в хранилище (операция выполняется асинхронно).
-  > Если один из ключей присутсвовал в хранилище, вставка/обновление не произойдет.
-
-  ### Параметры
-  * `key_values` - список, содержаший кортежи, вида:
-  `{key, value, ttl}`, где
-      * `key`   - ключ.
-      * `value` - значение.
-      * `ttl`   - время жизни значения, после истечения которого,
-      значение будет удалено из хранилища.
-
-  ### Пример
-      iex> KV.create([
-      ...>   {"foo", "foo_val", 10_000},
-      ...>   {"bar", "bar_val",  5_000},
-      ...> ])
-      iex> KV.read("foo")
-      "foo_val"
-      iex> KV.read("bar")
-      "bar_val"
-  """
-  @spec create(list[{String.t(), any(), integer()}]) :: :ok
-  defdelegate create(key_values), to: KV.Storage
 
   @doc """
   Получить значение из хранилища.
@@ -62,12 +32,8 @@ defmodule KV do
   Значение в случае успеха, и пустой лист в случае отсутствия ключа.
 
   ### Пример
-      iex> KV.create("foo", "bar")
       iex> KV.read("foo")
       "bar"
-
-      iex> KV.read("baz")
-      []
   """
   @spec read(String.t()) :: any()
   defdelegate read(key), to: KV.Storage
@@ -87,10 +53,6 @@ defmodule KV do
       iex> KV.update("foo", "baz")
       iex> KV.read("foo")
       "baz"
-
-      iex> KV.update("foo", "bar")
-      iex> KV.read("foo")
-      []
   """
   @spec update(String.t(), any(), integer() | nil) :: :ok
   defdelegate update(key, value, ttl \\ nil), to: KV.Storage
@@ -102,7 +64,6 @@ defmodule KV do
   * `key` - ключ для удаления.
 
   ### Пример
-      iex> KV.create("foo", "bar")
       iex> KV.delete("foo")
       iex> KV.read("foo")
       []

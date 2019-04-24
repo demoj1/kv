@@ -5,7 +5,7 @@ defmodule KV.RouterTest do
   alias KV.Router
 
   describe "router correct work" do
-    test "create new record" do
+    test "create new record", %{stor_pid: stor_pid} do
       resp =
         conn(:post, "/foo", "value=bar&ttl=#{@ttl}")
         |> put_req_header("content-type", "application/x-www-form-urlencoded")
@@ -15,9 +15,10 @@ defmodule KV.RouterTest do
       assert resp.status == 200
       assert resp.resp_body == ""
 
+      wait_cast_call(stor_pid)
+
       assert "bar" == KV.read("foo")
 
-      # Ждем истечения ttl
       wait_ttl_timeout()
 
       assert [] == KV.read("foo")
@@ -31,8 +32,9 @@ defmodule KV.RouterTest do
       assert resp.resp_body == ""
     end
 
-    test "read value" do
+    test "read value", %{stor_pid: stor_pid} do
       KV.create("foo", "bar")
+      wait_cast_call(stor_pid)
 
       resp =
         conn(:get, "/foo")
@@ -42,7 +44,6 @@ defmodule KV.RouterTest do
       assert resp.status == 200
       assert resp.resp_body == "bar"
 
-      # Ждем истечения ttl
       wait_ttl_timeout()
 
       resp =
@@ -54,15 +55,16 @@ defmodule KV.RouterTest do
       assert resp.resp_body == ""
     end
 
-    test "update value without change ttl" do
+    test "update value without change ttl", %{stor_pid: stor_pid} do
       KV.create("foo", "bar")
+      wait_cast_call(stor_pid)
 
       resp =
         conn(:patch, "/foo", "value=baz")
         |> put_req_header("content-type", "application/x-www-form-urlencoded")
         |> call
 
-      # Ждем истечения ttl
+      wait_cast_call(stor_pid)
       wait_ttl_timeout()
 
       assert resp.state == :sent
@@ -72,8 +74,9 @@ defmodule KV.RouterTest do
       assert [] == KV.read("foo")
     end
 
-    test "update value with change ttl" do
+    test "update value with change ttl", %{stor_pid: stor_pid} do
       KV.create("foo", "bar")
+      wait_cast_call(stor_pid)
 
       resp =
         conn(:patch, "/foo", "value=baz&ttl=#{@ttl * 2}")
@@ -84,6 +87,7 @@ defmodule KV.RouterTest do
       assert resp.status == 200
       assert resp.resp_body == ""
 
+      wait_cast_call(stor_pid)
       # ждем истечения (предыдущего) ttl
       wait_ttl_timeout()
 
@@ -99,8 +103,9 @@ defmodule KV.RouterTest do
       assert resp.resp_body == ""
     end
 
-    test "delete exist key" do
+    test "delete exist key", %{stor_pid: stor_pid} do
       KV.create("foo", "bar")
+      wait_cast_call(stor_pid)
 
       resp = conn(:delete, "/foo", "") |> call
 

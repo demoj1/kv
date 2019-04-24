@@ -14,12 +14,7 @@ defmodule KV.Storage do
 
   @spec create(String.t(), any(), integer()) :: :ok
   def create(key, value, ttl) when is_number(ttl) and is_binary(key) do
-    GenServer.cast(__MODULE__, {:create, [{key, value, ttl}]})
-  end
-
-  @spec create(list[{String.t(), any(), integer()}]) :: :ok
-  def create(key_values) do
-    GenServer.cast(__MODULE__, {:create, key_values})
+    GenServer.cast(__MODULE__, {:create, {key, value, ttl}})
   end
 
   @spec read(String.t()) :: any()
@@ -69,14 +64,8 @@ defmodule KV.Storage do
   end
 
   @impl true
-  def handle_cast({:create, key_values}, dets) do
-    key_values =
-      key_values
-      |> Enum.map(fn {k, v, ttl} ->
-        {k, v, System.system_time(:millisecond) + ttl}
-      end)
-
-    :dets.insert_new(dets, key_values)
+  def handle_cast({:create, {key, value, ttl}}, dets) do
+    :dets.insert_new(dets, {key, value, System.system_time(:millisecond) + ttl})
 
     {:noreply, dets}
   end
