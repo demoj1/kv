@@ -5,6 +5,7 @@ defmodule KV.Storage do
 
   @dets_path Application.get_env(:kv, :dets_path, "./storage")
   @auto_save Application.get_env(:kv, :auto_save, 1_000)
+  @clear_timeout Application.get_env(:kv, :clear_timeout, 10_000)
 
   use GenServer
   require Logger
@@ -34,6 +35,19 @@ defmodule KV.Storage do
   @spec delete(String.t()) :: :ok
   def delete(key) when is_binary(key) do
     GenServer.cast(__MODULE__, {:delete, key})
+  end
+
+  @doc """
+  Удалить записи, у которых вышел ttl.
+
+  ### Параметры
+  * `dets` - ссылка на таблицу.
+  """
+  @spec remove_timeouts() :: :ok
+  defp remove_timeouts() do
+    GenServer.cast(__MODULE__, :clear)
+    Process.sleep(@clear_timeout)
+    remove_timeouts()
   end
 
   # ---------------- Server ----------------
@@ -97,6 +111,18 @@ defmodule KV.Storage do
     {:noreply, dets}
   end
 
+  @impl true
+  def handle_cast(:clear, dets) do
+    current_time = :erlang.system_time(:millisecond)
+
+    ms = [{{:_, :_, :"$1"}, [{:<, :"$1", {:const, current_time}}], [true]}]
+    count = :dets.select_delete(dets, ms)
+
+    Logger.debug("Removed #{count} records")
+
+    {:noreply, dets}
+  end
+
   # ---------------- Callbacks ----------------
 
   @spec start_link() :: no_return
@@ -116,7 +142,7 @@ defmodule KV.Storage do
           GenServer.stop(__MODULE__, reason)
       end
 
-    remove_timeouts(dets)
+    Task.start_link(fn -> remove_timeouts() end)
     GenServer.start_link(__MODULE__, dets, name: __MODULE__)
   end
 
@@ -134,21 +160,5 @@ defmodule KV.Storage do
     :dets.sync(dets)
     :dets.close(dets)
     :normal
-  end
-
-  @doc """
-  Удалить записи, у которых вышел ttl.
-
-  ### Параметры
-  * `dets` - ссылка на таблицу.
-  """
-  @spec remove_timeouts(table()) :: :ok
-  defp remove_timeouts(dets) do
-    current_time = :erlang.system_time(:millisecond)
-
-    ms = [{{:_, :_, :"$1"}, [{:<, :"$1", {:const, current_time}}], [true]}]
-    count = :dets.select_delete(dets, ms)
-
-    Logger.info("Removed #{count} records on startup clearing")
   end
 end

@@ -3,6 +3,7 @@ defmodule KVTest do
   doctest KV
 
   @dets_path Application.get_env(:kv, :dets_path)
+  @clear_timeout Application.get_env(:kv, :clear_timeout)
 
   setup do
     File.rm(@dets_path)
@@ -11,6 +12,16 @@ defmodule KVTest do
   end
 
   describe "storage correct work with ttl" do
+    test "correct work auto clear" do
+      {:ok, ref} = :dets.open_file(@dets_path, type: :set, auto_save: 1_000)
+      KV.create("foo", "bar", 5)
+
+      # Ждем запуска очистки и просрочки ttl
+      Process.sleep(@clear_timeout + 10)
+
+      assert [] == :dets.lookup(ref, "foo")
+    end
+
     test "should remove after ttl timeout" do
       KV.create("foo", "bar", 1)
       Process.sleep(2)
