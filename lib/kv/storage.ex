@@ -49,7 +49,10 @@ defmodule KV.Storage do
     res =
       case :dets.lookup(dets, key) do
         [{_, v, ttl}] ->
-          if ttl <= System.system_time(:millisecond) do
+          now = System.system_time(:millisecond)
+
+          if ttl <= now do
+            Logger.debug("Removed #{key} ttl timeout: #{ttl} now: #{now}")
             KV.delete(key)
             []
           else

@@ -62,7 +62,7 @@ defmodule KVTest do
       assert [] == KV.read("foo")
     end
 
-    test "should correct work auto clear", %{dets: dets, stor_pid: stor_pid} do
+    test "should correct work auto clear", %{stor_pid: stor_pid} do
       KV.create("foo", "bar")
       wait_cast_call(stor_pid)
 
@@ -70,7 +70,7 @@ defmodule KVTest do
       Process.sleep(@clear_timeout + @ttl)
       wait_cast_call(stor_pid)
 
-      assert [] == :dets.lookup(dets, "foo")
+      assert [] == KV.read("foo")
     end
 
     test "should remove after ttl timeout", %{stor_pid: stor_pid} do

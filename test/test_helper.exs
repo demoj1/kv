@@ -9,6 +9,13 @@ defmodule KV.TestCase do
       @ttl Application.get_env(:kv, :ttl)
 
       setup do
+        Application.start(:kv)
+        {:ok, _} = Application.ensure_all_started(:kv)
+
+        on_exit(fn ->
+          Application.stop(:kv)
+        end)
+
         {:ok, ref} = :dets.open_file(@dets_path, type: :set, auto_save: @autosave)
         :dets.delete_all_objects(ref)
 

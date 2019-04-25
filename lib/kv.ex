@@ -2,6 +2,8 @@ defmodule KV do
   use Application
   use Supervisor
 
+  require Logger
+
   @port Application.get_env(:kv, :port, 8080)
   @ttl Application.get_env(:kv, :ttl, 10_000)
 
@@ -85,6 +87,7 @@ defmodule KV do
 
   @impl true
   def start(_type, _args) do
+    Logger.debug("Start kv application")
     Supervisor.start_link(__MODULE__, [])
   end
 end
